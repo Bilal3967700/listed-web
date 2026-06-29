@@ -1,15 +1,17 @@
 import { Search, SlidersHorizontal, Sparkles } from "lucide-react";
 
 const categories = [
-  "Fashion",
+  "Vintage",
+  "Clothing",
+  "Shoes",
   "Bags",
-  "T-shirts",
-  "Laptops",
-  "Phones",
   "Watches",
-  "Jewellery",
+  "Collectibles",
   "Tech",
-  "Sneakers"
+  "Phones",
+  "Laptops",
+  "Cameras",
+  "Home"
 ];
 
 export default function SearchPage() {

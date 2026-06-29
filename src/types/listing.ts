@@ -1,14 +1,17 @@
 export type ListingCategory =
   | "New In"
   | "Trending"
-  | "Fashion"
-  | "Bags"
+  | "Vintage"
+  | "Clothing"
   | "Shoes"
+  | "Bags"
   | "Watches"
-  | "Jewellery"
+  | "Collectibles"
   | "Tech"
   | "Phones"
-  | "Laptops";
+  | "Laptops"
+  | "Cameras"
+  | "Home";
 
 export interface Listing {
   id: string;

@@ -9,11 +9,14 @@ import { useFeedStore } from "@/store/useFeedStore";
 const filters: ListingCategory[] = [
   "New In",
   "Trending",
-  "Bags",
+  "Vintage",
+  "Clothing",
   "Shoes",
+  "Bags",
   "Watches",
-  "Jewellery",
-  "Tech"
+  "Collectibles",
+  "Tech",
+  "Cameras"
 ];
 
 export default function HomePage() {
