@@ -365,7 +365,7 @@ export const fakeListings: Listing[] = [
     isVerifiedSeller: false,
     liked: true,
     imageUrl:
-      "https://images.unsplash.com/photo-1627856014754-2907e2355d8f?q=80&w=900&auto=format&fit=crop",
+      "https://unsplash.com/photos/pokemon-trading-card-on-gray-textile-OB756zZDYi0",
     createdAt: "2026-06-21T09:10:00Z"
   },
   {
