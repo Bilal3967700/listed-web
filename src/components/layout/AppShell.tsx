@@ -32,6 +32,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const isDark = mounted && theme === "dark";
 
+  const toggleTheme = () => {
+    setTheme(isDark ? "light" : "dark");
+  };
+
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--text)]">
       <header className="sticky top-0 z-40 hidden border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur md:block">
@@ -47,7 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div>
               <div className="text-2xl font-black tracking-tight">Listed.lk</div>
               <div className="text-sm text-[var(--text-muted)]">
-                Premium resale for Sri Lanka
+                Listed ? Sold !
               </div>
             </div>
           </Link>
@@ -70,7 +74,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <button
-            onClick={() => setTheme(isDark ? "light" : "dark")}
+            onClick={toggleTheme}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)]"
+            aria-label="Toggle dark mode"
+          >
+            {isDark ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
+      </header>
+
+      <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--background)]/95 px-4 py-3 backdrop-blur md:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-3">
+            <Image
+              src="/listed-logo.png"
+              alt="Listed.lk"
+              width={46}
+              height={46}
+              className="rounded-xl object-contain"
+            />
+            <div>
+              <div className="text-lg font-black tracking-tight">Listed.lk</div>
+              <div className="text-xs font-semibold text-[var(--text-muted)]">
+                Listed ? Sold !
+              </div>
+            </div>
+          </Link>
+
+          <button
+            onClick={toggleTheme}
             className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)]"
             aria-label="Toggle dark mode"
           >

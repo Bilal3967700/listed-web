@@ -40,6 +40,7 @@ export default async function ListingDetailsPage({
 
         <div>
           <p className="text-lg font-bold">{listing.brand}</p>
+
           <h1 className="mt-2 text-4xl font-black tracking-tight">
             {listing.title}
           </h1>
@@ -51,7 +52,6 @@ export default async function ListingDetailsPage({
           <div className="mt-4 flex flex-wrap gap-2 text-sm text-[var(--text-muted)]">
             <span>{listing.condition}</span>
             {listing.size && <span>• {listing.size}</span>}
-            <span>• {listing.suburb}</span>
           </div>
 
           <div className="mt-8 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">

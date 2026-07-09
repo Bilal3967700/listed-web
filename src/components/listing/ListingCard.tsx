@@ -24,6 +24,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
             toggleLike(listing.id);
           }}
           className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)]/90"
+          aria-label="Save listing"
         >
           <Heart
             size={17}
@@ -62,10 +63,12 @@ export function ListingCard({ listing }: { listing: Listing }) {
           {listing.size && <span>• {listing.size}</span>}
         </div>
 
-        <p className="mt-2 text-base font-black">{formatLkr(listing.priceLkr)}</p>
+        <p className="mt-2 text-base font-black">
+          {formatLkr(listing.priceLkr)}
+        </p>
 
         <p className="mt-1 truncate text-xs text-[var(--text-muted)]">
-          @{listing.sellerName} · {listing.suburb}
+          @{listing.sellerName}
         </p>
       </div>
     </Link>
