@@ -19,7 +19,7 @@ const navItems = [
   { href: "/search", label: "Search", icon: Search },
   { href: "/sell", label: "List", icon: PlusCircle },
   { href: "/inbox", label: "Inbox", icon: MessageCircle },
-  { href: "/profile", label: "Profile", icon: User }
+  { href: "/account", label: "Account", icon: User }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
