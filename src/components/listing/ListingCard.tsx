@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { BadgeCheck, Heart } from "lucide-react";
 import { Listing } from "@/types/listing";
-import { formatLkr, formatTimeAgo } from "@/lib/utils";
+import { formatLkr } from "@/lib/utils";
 import { useFeedStore } from "@/store/useFeedStore";
 
 export function ListingCard({ listing }: { listing: Listing }) {
@@ -46,29 +46,13 @@ export function ListingCard({ listing }: { listing: Listing }) {
         </div>
       </div>
 
-      <div className="px-1 pt-3">
-        <div className="mb-1 flex items-center justify-between gap-2">
-          <h3 className="truncate text-base font-bold">{listing.brand}</h3>
-          <span className="shrink-0 text-xs text-[var(--text-muted)]">
-            {formatTimeAgo(listing.createdAt)}
-          </span>
-        </div>
-
-        <p className="line-clamp-2 min-h-10 text-sm text-[var(--text)]">
+      <div className="px-1 pt-2">
+        <p className="truncate text-sm font-medium text-[var(--text)]">
           {listing.title}
         </p>
 
-        <div className="mt-2 flex flex-wrap gap-1 text-xs text-[var(--text-muted)]">
-          <span>{listing.condition}</span>
-          {listing.size && <span>• {listing.size}</span>}
-        </div>
-
-        <p className="mt-2 text-base font-black">
+        <p className="mt-1 text-sm font-bold text-[var(--text)]">
           {formatLkr(listing.priceLkr)}
-        </p>
-
-        <p className="mt-1 truncate text-xs text-[var(--text-muted)]">
-          @{listing.sellerName}
         </p>
       </div>
     </Link>
