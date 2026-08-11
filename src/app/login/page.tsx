@@ -1,5 +1,14 @@
 import Link from "next/link";
-import { login } from "@/actions/auth";
+import { Apple } from "lucide-react";
+import { login, loginWithApple, loginWithGoogle } from "@/actions/auth";
+
+function GoogleIcon() {
+  return (
+    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-black text-black">
+      G
+    </span>
+  );
+}
 
 export default async function LoginPage({
   searchParams
@@ -19,7 +28,31 @@ export default async function LoginPage({
           Log in to Listed.lk
         </h1>
 
-        <form action={login} className="mt-6 space-y-4">
+        <div className="mt-6 grid gap-3">
+          <form action={loginWithGoogle}>
+            <button className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] font-bold">
+              <GoogleIcon />
+              Continue with Google
+            </button>
+          </form>
+
+          <form action={loginWithApple}>
+            <button className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] font-bold">
+              <Apple size={20} />
+              Continue with Apple
+            </button>
+          </form>
+        </div>
+
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-[var(--border)]" />
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+            or
+          </span>
+          <div className="h-px flex-1 bg-[var(--border)]" />
+        </div>
+
+        <form action={login} className="space-y-4">
           <div>
             <label className="text-sm font-bold">Email</label>
             <input
