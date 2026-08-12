@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signUp } from "@/actions/auth";
+import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 
 export default async function SignupPage({
   searchParams
@@ -19,7 +20,19 @@ export default async function SignupPage({
           Create your Listed.lk account
         </h1>
 
-        <form action={signUp} className="mt-6 space-y-4">
+        <div className="mt-6">
+          <SocialAuthButtons />
+        </div>
+
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-[var(--border)]" />
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+            or
+          </span>
+          <div className="h-px flex-1 bg-[var(--border)]" />
+        </div>
+
+        <form action={signUp} className="space-y-4">
           <div>
             <label className="text-sm font-bold">Full name</label>
             <input

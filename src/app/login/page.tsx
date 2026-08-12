@@ -1,14 +1,6 @@
 import Link from "next/link";
-import { Apple } from "lucide-react";
-import { login, loginWithApple, loginWithGoogle } from "@/actions/auth";
-
-function GoogleIcon() {
-  return (
-    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-black text-black">
-      G
-    </span>
-  );
-}
+import { login } from "@/actions/auth";
+import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 
 export default async function LoginPage({
   searchParams
@@ -28,20 +20,8 @@ export default async function LoginPage({
           Log in to Listed.lk
         </h1>
 
-        <div className="mt-6 grid gap-3">
-          <form action={loginWithGoogle}>
-            <button className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] font-bold">
-              <GoogleIcon />
-              Continue with Google
-            </button>
-          </form>
-
-          <form action={loginWithApple}>
-            <button className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] font-bold">
-              <Apple size={20} />
-              Continue with Apple
-            </button>
-          </form>
+        <div className="mt-6">
+          <SocialAuthButtons />
         </div>
 
         <div className="my-6 flex items-center gap-3">
