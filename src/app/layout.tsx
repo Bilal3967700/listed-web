@@ -5,7 +5,7 @@ import { AppShell } from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
   title: "Listed.lk",
-  description: "Listed ? Sold !"
+  description: "Listed ? Sold."
 };
 
 export default function RootLayout({
