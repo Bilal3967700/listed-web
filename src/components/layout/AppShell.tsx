@@ -19,7 +19,7 @@ const navItems = [
   { href: "/search", label: "Search", icon: Search },
   { href: "/sell", label: "List", icon: PlusCircle },
   { href: "/inbox", label: "Inbox", icon: MessageCircle },
-  { href: "/account", label: "Account", icon: User }
+  { href: "/profile", label: "Profile", icon: User }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -49,7 +49,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               className="rounded-xl object-contain"
             />
             <div>
-              <div className="text-2xl font-black tracking-tight">Listed.lk</div>
+              <div className="text-2xl font-black tracking-tight">
+                Listed.lk
+              </div>
               <div className="text-sm text-[var(--text-muted)]">
                 Listed ? Sold !
               </div>
@@ -94,7 +96,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               className="rounded-xl object-contain"
             />
             <div>
-              <div className="text-lg font-black tracking-tight">Listed.lk</div>
+              <div className="text-lg font-black tracking-tight">
+                Listed.lk
+              </div>
               <div className="text-xs font-semibold text-[var(--text-muted)]">
                 Listed ? Sold !
               </div>

@@ -77,7 +77,7 @@ export async function login(formData: FormData) {
 
   await upsertProfile();
 
-  redirect("/account");
+  redirect("/profile");
 }
 
 export async function loginWithGoogle() {
@@ -131,6 +131,10 @@ export async function updateProfile(formData: FormData) {
   const bio = String(formData.get("bio") || "").trim();
   const locationLabel = String(formData.get("locationLabel") || "").trim();
 
+  if (!username) {
+    redirect("/account?message=Username is required");
+  }
+
   const supabase = await createClient();
 
   const {
@@ -141,24 +145,22 @@ export async function updateProfile(formData: FormData) {
     redirect("/login");
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .upsert({
-      id: user.id,
-      email: user.email,
-      full_name: fullName,
-      username,
-      phone,
-      bio,
-      location_label: locationLabel,
-      updated_at: new Date().toISOString()
-    });
+  const { error } = await supabase.from("profiles").upsert({
+    id: user.id,
+    email: user.email,
+    full_name: fullName,
+    username,
+    phone,
+    bio,
+    location_label: locationLabel,
+    updated_at: new Date().toISOString()
+  });
 
   if (error) {
     redirect(`/account?message=${encodeURIComponent(error.message)}`);
   }
 
-  redirect("/account?message=Profile updated");
+  redirect(`/u/${username}`);
 }
 
 export async function logout() {
