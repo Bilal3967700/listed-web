@@ -1,5 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
+import { ListingCard } from "@/components/listing/ListingCard";
+import { getListingsBySellerId } from "@/lib/listings";
 import { notFound, redirect } from "next/navigation";
 import {
   ArrowLeft,
@@ -51,7 +53,7 @@ export default async function PublicProfilePage({
   const isOwnProfile = user?.id === profile.id;
   const displayName = profile.full_name || profile.username || "Listed user";
   const avatarUrl = profile.avatar_url || "";
-
+  const sellerListings = await getListingsBySellerId(profile.id);
   const tabs = [
     { id: "listings", label: "Listings" },
     { id: "reviews", label: "Reviews" },
@@ -163,26 +165,34 @@ export default async function PublicProfilePage({
         </div>
       </section>
 
-      {activeTab === "listings" && (
+    {activeTab === "listings" && (
         <section className="mt-6">
-          <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] p-8 text-center">
-            <p className="text-lg font-black">No listings yet</p>
-            <p className="mt-2 text-sm text-[var(--text-muted)]">
-              When this seller lists items, they’ll appear here in a clean
-              Depop-style grid.
-            </p>
+            {sellerListings.length > 0 ? (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3">
+                {sellerListings.map((listing) => (
+                <ListingCard key={listing.id} listing={listing} />
+                ))}
+            </div>
+            ) : (
+            <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] p-8 text-center">
+                <p className="text-lg font-black">No listings yet</p>
+                <p className="mt-2 text-sm text-[var(--text-muted)]">
+                When this seller lists items, they’ll appear here in a clean
+                Depop-style grid.
+                </p>
 
-            {isOwnProfile && (
-              <Link
-                href="/sell"
-                className="mt-5 inline-flex h-12 items-center justify-center rounded-2xl bg-[var(--text)] px-6 font-bold text-[var(--surface)]"
-              >
-                List your first item
-              </Link>
+                {isOwnProfile && (
+                <Link
+                    href="/sell"
+                    className="mt-5 inline-flex h-12 items-center justify-center rounded-2xl bg-[var(--text)] px-6 font-bold text-[var(--surface)]"
+                >
+                    List your first item
+                </Link>
+                )}
+            </div>
             )}
-          </div>
         </section>
-      )}
+        )}
 
       {activeTab === "reviews" && (
         <section className="mt-6">

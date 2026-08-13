@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, MessageCircle, ShoppingBag } from "lucide-react";
-import { fakeListings } from "@/data/fakeListings";
+import { getListingById } from "@/lib/listings";
 import { formatLkr } from "@/lib/utils";
 
 export default async function ListingDetailsPage({
@@ -9,7 +9,7 @@ export default async function ListingDetailsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const listing = fakeListings.find((item) => item.id === id);
+  const listing = await getListingById(id);
 
   if (!listing) {
     return (
@@ -18,6 +18,8 @@ export default async function ListingDetailsPage({
       </div>
     );
   }
+
+  const images = listing.imageUrls.length > 0 ? listing.imageUrls : [listing.imageUrl];
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -30,16 +32,23 @@ export default async function ListingDetailsPage({
       </Link>
 
       <div className="grid gap-8 md:grid-cols-2">
-        <div className="overflow-hidden rounded-[2rem] bg-[var(--surface-soft)]">
-          <img
-            src={listing.imageUrl}
-            alt={listing.title}
-            className="aspect-[0.85] w-full object-cover"
-          />
+        <div className="grid gap-3">
+          {images.map((imageUrl, index) => (
+            <div
+              key={`${imageUrl}-${index}`}
+              className="overflow-hidden rounded-[2rem] bg-[var(--surface-soft)]"
+            >
+              <img
+                src={imageUrl}
+                alt={`${listing.title} photo ${index + 1}`}
+                className="aspect-[0.85] w-full object-cover"
+              />
+            </div>
+          ))}
         </div>
 
         <div>
-          <p className="text-lg font-bold">{listing.brand}</p>
+          {listing.brand && <p className="text-lg font-bold">{listing.brand}</p>}
 
           <h1 className="mt-2 text-4xl font-black tracking-tight">
             {listing.title}
@@ -52,17 +61,21 @@ export default async function ListingDetailsPage({
           <div className="mt-4 flex flex-wrap gap-2 text-sm text-[var(--text-muted)]">
             <span>{listing.condition}</span>
             {listing.size && <span>• {listing.size}</span>}
+            <span>• {listing.category}</span>
           </div>
 
-          <div className="mt-8 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">
+          <Link
+            href={`/u/${listing.sellerUsername}`}
+            className="mt-8 block rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5"
+          >
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
               Seller
             </p>
-            <p className="mt-2 text-xl font-black">@{listing.sellerName}</p>
+            <p className="mt-2 text-xl font-black">@{listing.sellerUsername}</p>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
               {listing.isVerifiedSeller ? "Verified Seller" : "Community Seller"}
             </p>
-          </div>
+          </Link>
 
           <div className="mt-8">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
