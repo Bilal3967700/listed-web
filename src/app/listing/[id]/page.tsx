@@ -108,10 +108,14 @@ export default async function ListingDetailsPage({
               <div className="flex flex-wrap gap-3">
                 <Link
                   href={`/listing/${listing.id}/edit`}
-                  className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--text)] px-5 font-bold text-[var(--surface)]"
+                  style={{
+                    backgroundColor: "var(--text)",
+                    color: "var(--background)"
+                  }}
+                  className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-[var(--text)] px-5 font-black shadow-sm transition hover:opacity-85"
                 >
                   <Pencil size={17} />
-                  Edit listing
+                  <span>Edit listing</span>
                 </Link>
 
                 <DeleteListingButton
