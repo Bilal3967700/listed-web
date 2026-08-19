@@ -1,63 +1,195 @@
-import { Search, SlidersHorizontal, Sparkles } from "lucide-react";
+import { DiscoverClient } from "@/components/search/DiscoverClient";
+import {
+  getSearchSuggestions,
+  searchListings
+} from "@/lib/search";
 
-const categories = [
-  "Vintage",
-  "Clothing",
-  "Shoes",
-  "Bags",
-  "Watches",
-  "Collectibles",
-  "Tech",
-  "Phones",
-  "Laptops",
-  "Cameras",
-  "Home"
-];
+import { createClient } from "@/lib/supabase/server";
+import { Category } from "@/types/listing";
 
-export default function SearchPage() {
+import {
+  SearchFilters,
+  SearchSort
+} from "@/types/search";
+
+type SearchParams = {
+  q?: string;
+  category?: string;
+  min?: string;
+  max?: string;
+  condition?: string;
+  sort?: string;
+  page?: string;
+  sid?: string;
+};
+
+function positiveNumber(
+  value?: string
+) {
+  if (!value) {
+    return undefined;
+  }
+
+  const number = Number(value);
+
+  if (
+    !Number.isFinite(number) ||
+    number < 0
+  ) {
+    return undefined;
+  }
+
+  return Math.round(number);
+}
+
+function validSort(
+  value?: string
+): SearchSort {
+  const validValues: SearchSort[] = [
+    "relevance",
+    "newest",
+    "price_asc",
+    "price_desc"
+  ];
+
+  return validValues.includes(
+    value as SearchSort
+  )
+    ? (value as SearchSort)
+    : "relevance";
+}
+
+export default async function SearchPage({
+  searchParams
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+
+  const filters: SearchFilters = {
+    query:
+      params.q
+        ?.trim()
+        .slice(0, 100) || "",
+
+    category:
+      params.category || undefined,
+
+    minimumPrice:
+      positiveNumber(params.min),
+
+    maximumPrice:
+      positiveNumber(params.max),
+
+    condition:
+      params.condition || undefined,
+
+    sort: validSort(params.sort),
+
+    page: Math.max(
+      1,
+      positiveNumber(params.page) || 1
+    )
+  };
+
+  const hasSearch = Boolean(
+    filters.query ||
+      filters.category ||
+      filters.minimumPrice !== undefined ||
+      filters.maximumPrice !== undefined ||
+      filters.condition
+  );
+
+  const supabase =
+    await createClient();
+
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  const [
+    categoriesResult,
+    searchResult,
+    historyResult
+  ] = await Promise.all([
+    supabase
+      .from("categories")
+      .select(
+        "id, name, slug, parent_id, sort_order"
+      )
+      .eq("is_active", true)
+      .order("sort_order", {
+        ascending: true
+      }),
+
+    hasSearch
+      ? searchListings(filters)
+      : Promise.resolve({
+          listings: [],
+          total: 0
+        }),
+
+    user
+      ? supabase
+          .from("search_history")
+          .select(
+            "query, created_at"
+          )
+          .eq("user_id", user.id)
+          .order("created_at", {
+            ascending: false
+          })
+          .limit(20)
+      : Promise.resolve({
+          data: [] as {
+            query: string;
+            created_at: string;
+          }[]
+        })
+  ]);
+
+  let didYouMean: string | null =
+    null;
+
+  if (
+    filters.query.length >= 2 &&
+    searchResult.total === 0
+  ) {
+    const suggestions =
+      await getSearchSuggestions(
+        filters.query
+      );
+
+    didYouMean =
+      suggestions.find(
+        (item) =>
+          item.suggestion.toLowerCase() !==
+          filters.query.toLowerCase()
+      )?.suggestion || null;
+  }
+
   return (
-    <div>
-      <h1 className="text-4xl font-black">Search</h1>
-      <p className="mt-2 text-[var(--text-muted)]">
-        Discover quality second-hand finds.
-      </p>
-
-      <div className="mt-6 flex gap-3">
-        <div className="flex h-14 flex-1 items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4">
-          <Search size={18} />
-          <span className="text-sm text-[var(--text-muted)]">
-            Search brands, items or categories
-          </span>
-        </div>
-
-        <button className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-          <SlidersHorizontal size={18} />
-        </button>
-      </div>
-
-      <section className="mt-8">
-        <h2 className="text-xl font-black">Browse categories</h2>
-        <div className="mt-4 flex flex-wrap gap-3">
-          {categories.map((item) => (
-            <button
-              key={item}
-              className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-bold"
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-10 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">
-        <div className="flex items-center gap-2">
-          <Sparkles size={18} />
-          <h2 className="text-xl font-black">Curated for you</h2>
-        </div>
-        <p className="mt-2 text-sm text-[var(--text-muted)]">
-          Collection cards and search results will come next.
-        </p>
-      </section>
-    </div>
+    <DiscoverClient
+      listings={
+        searchResult.listings
+      }
+      total={searchResult.total}
+      categories={
+        (categoriesResult.data ||
+          []) as Category[]
+      }
+      filters={filters}
+      accountSearches={(
+        historyResult.data || []
+      ).map((item) => ({
+        query: item.query,
+        createdAt: item.created_at
+      }))}
+      userId={user?.id || null}
+      didYouMean={didYouMean}
+      searchEventId={
+        params.sid || null
+      }
+    />
   );
 }
