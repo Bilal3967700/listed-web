@@ -32,3 +32,16 @@ export interface Listing {
   imageUrls: string[];
   createdAt: string;
 }
+
+export interface EditableListing {
+  id: string;
+  title: string;
+  brand: string | null;
+  description: string;
+  priceLkr: number;
+  condition: string;
+  size: string | null;
+  sellerId: string;
+  categoryId: string | null;
+  photos: ListingPhoto[];
+}

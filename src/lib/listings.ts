@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import { Listing } from "@/types/listing";
+import {
+  EditableListing,
+  Listing,
+  ListingPhoto
+} from "@/types/listing";
 
 type CategoryRow = {
   id: string;
@@ -256,4 +260,79 @@ export async function getListingsBySellerId(sellerId: string) {
   }
 
   return hydrateListings((data || []) as ListingRow[]);
+}
+
+export async function getEditableListingById(
+  listingId: string,
+  userId: string
+): Promise<EditableListing | null> {
+  const supabase = await createClient();
+
+  const { data: listing, error } = await supabase
+    .from("listings")
+    .select(`
+      id,
+      title,
+      brand,
+      description,
+      price_lkr,
+      condition,
+      size,
+      seller_id,
+      category_id
+    `)
+    .eq("id", listingId)
+    .eq("seller_id", userId)
+    .eq("status", "active")
+    .single();
+
+  if (error || !listing) {
+    console.error(
+      "getEditableListingById error:",
+      error?.message
+    );
+
+    return null;
+  }
+
+  const { data: photos, error: photosError } =
+    await supabase
+      .from("listing_photos")
+      .select(`
+        id,
+        listing_id,
+        image_url,
+        storage_path,
+        sort_order,
+        is_cover
+      `)
+      .eq("listing_id", listingId)
+      .order("is_cover", {
+        ascending: false
+      })
+      .order("sort_order", {
+        ascending: true
+      });
+
+  if (photosError) {
+    console.error(
+      "getEditableListingById photos error:",
+      photosError.message
+    );
+
+    return null;
+  }
+
+  return {
+    id: listing.id,
+    title: listing.title,
+    brand: listing.brand,
+    description: listing.description,
+    priceLkr: listing.price_lkr,
+    condition: listing.condition,
+    size: listing.size,
+    sellerId: listing.seller_id,
+    categoryId: listing.category_id,
+    photos: (photos || []) as ListingPhoto[]
+  };
 }
