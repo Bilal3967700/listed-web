@@ -2,25 +2,25 @@
 
 import Image from "next/image";
 import Link from "next/link";
-
 import {
-  FormEvent,
-  KeyboardEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  useCallback,
   useEffect,
   useRef,
   useState
 } from "react";
-
 import {
+  ChevronRight,
+  ImageIcon,
   Send
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { formatLkr } from "@/lib/utils";
-
 import {
-  ConversationDetails,
-  ConversationMessage
+  type ConversationDetails,
+  type ConversationMessage
 } from "@/types/messaging";
 
 type RealtimeMessageRow = {
@@ -32,6 +32,25 @@ type RealtimeMessageRow = {
   created_at: string;
 };
 
+function formatMessageTime(
+  dateString: string
+) {
+  return new Intl.DateTimeFormat(
+    "en-LK",
+    {
+      hour: "numeric",
+      minute: "2-digit"
+    }
+  ).format(new Date(dateString));
+}
+
+function getInitial(name: string) {
+  return (
+    name.trim().charAt(0).toUpperCase() ||
+    "L"
+  );
+}
+
 export function MessageThread({
   conversation,
   initialMessages,
@@ -41,12 +60,12 @@ export function MessageThread({
   initialMessages: ConversationMessage[];
   currentUserId: string;
 }) {
-  const supabase = createClient();
+  const [supabase] = useState(() =>
+    createClient()
+  );
 
-  const [
-    messages,
-    setMessages
-  ] = useState(initialMessages);
+  const [messages, setMessages] =
+    useState(initialMessages);
 
   const [body, setBody] =
     useState("");
@@ -59,6 +78,36 @@ export function MessageThread({
 
   const endRef =
     useRef<HTMLDivElement>(null);
+
+  const markConversationRead =
+    useCallback(async () => {
+      const { error } =
+        await supabase.rpc(
+          "mark_conversation_read",
+          {
+            p_conversation_id:
+              conversation.id
+          }
+        );
+
+      if (error) {
+        console.error(
+          "Mark conversation read error:",
+          error.message
+        );
+
+        return;
+      }
+
+      window.dispatchEvent(
+        new Event(
+          "listed:unread-changed"
+        )
+      );
+    }, [
+      supabase,
+      conversation.id
+    ]);
 
   useEffect(() => {
     const channel = supabase
@@ -93,13 +142,14 @@ export function MessageThread({
 
           setMessages(
             (currentMessages) => {
-              if (
+              const alreadyExists =
                 currentMessages.some(
                   (message) =>
                     message.id ===
                     newMessage.id
-                )
-              ) {
+                );
+
+              if (alreadyExists) {
                 return currentMessages;
               }
 
@@ -114,13 +164,7 @@ export function MessageThread({
             row.sender_id !==
             currentUserId
           ) {
-            void supabase
-              .from("messages")
-              .update({
-                read_at:
-                  new Date().toISOString()
-              })
-              .eq("id", row.id);
+            void markConversationRead();
           }
         }
       )
@@ -134,46 +178,27 @@ export function MessageThread({
   }, [
     conversation.id,
     currentUserId,
+    markConversationRead,
     supabase
   ]);
 
   useEffect(() => {
-    void supabase
-      .from("messages")
-      .update({
-        read_at:
-          new Date().toISOString()
-      })
-      .eq(
-        "conversation_id",
-        conversation.id
-      )
-      .neq(
-        "sender_id",
-        currentUserId
-      )
-      .is("read_at", null);
-  }, [
-    conversation.id,
-    currentUserId,
-    supabase
-  ]);
+    void markConversationRead();
+  }, [markConversationRead]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({
       behavior: "smooth",
-      block: "end"
+      block: "nearest"
     });
   }, [messages]);
 
   async function sendMessage(
-    event:
-      FormEvent<HTMLFormElement>
+    event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
-    const cleanBody =
-      body.trim();
+    const cleanBody = body.trim();
 
     if (
       !cleanBody ||
@@ -242,13 +267,14 @@ export function MessageThread({
 
     setMessages(
       (currentMessages) => {
-        if (
+        const alreadyExists =
           currentMessages.some(
             (message) =>
               message.id ===
               sentMessage.id
-          )
-        ) {
+          );
+
+        if (alreadyExists) {
           return currentMessages;
         }
 
@@ -261,6 +287,12 @@ export function MessageThread({
 
     setBody("");
     setIsSending(false);
+
+    window.dispatchEvent(
+      new Event(
+        "listed:unread-changed"
+      )
+    );
   }
 
   function handleKeyDown(
@@ -279,62 +311,89 @@ export function MessageThread({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-10rem)] flex-col">
-      <Link
-        href={
-          conversation.listingId
-            ? `/listing/${conversation.listingId}`
-            : "#"
-        }
-        className={[
-          "flex items-center gap-3 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-3",
-          conversation.listingId
-            ? ""
-            : "pointer-events-none"
-        ].join(" ")}
-      >
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[var(--surface-soft)]">
-          {conversation.listingImageUrl ? (
-            <Image
-              src={
-                conversation.listingImageUrl
-              }
-              alt={
-                conversation.listingTitle
-              }
-              fill
-              sizes="64px"
-              className="object-cover"
-            />
-          ) : null}
-        </div>
-
-        <div className="min-w-0">
-          <p className="truncate font-black">
-            {
-              conversation.listingTitle
-            }
-          </p>
-
-          <p className="mt-1 text-sm font-bold text-[var(--text-muted)]">
-            {formatLkr(
-              conversation.listingPriceLkr
+    <div className="flex min-h-[calc(100vh-12rem)] flex-col">
+      {conversation.listingId ? (
+        <Link
+          href={`/listing/${conversation.listingId}`}
+          className="group flex items-center gap-3 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm transition hover:border-[var(--text-muted)]"
+        >
+          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-[var(--surface-soft)]">
+            {conversation.listingImageUrl ? (
+              <Image
+                src={
+                  conversation.listingImageUrl
+                }
+                alt={
+                  conversation.listingTitle
+                }
+                fill
+                sizes="80px"
+                className="object-cover transition duration-300 group-hover:scale-105"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
+                <ImageIcon
+                  size={22}
+                  aria-hidden="true"
+                />
+              </div>
             )}
-          </p>
+          </div>
 
-          {!conversation.listingId && (
-            <p className="mt-1 text-xs text-[var(--danger)]">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Listing
+            </p>
+
+            <p className="mt-1 truncate font-black">
+              {conversation.listingTitle}
+            </p>
+
+            <p className="mt-1 text-sm font-bold">
+              {formatLkr(
+                conversation.listingPriceLkr
+              )}
+            </p>
+          </div>
+
+          <ChevronRight
+            size={20}
+            className="shrink-0 text-[var(--text-muted)] transition group-hover:translate-x-1"
+            aria-hidden="true"
+          />
+        </Link>
+      ) : (
+        <div className="flex items-center gap-3 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-3">
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-[var(--surface-soft)] text-[var(--text-muted)]">
+            <ImageIcon
+              size={22}
+              aria-hidden="true"
+            />
+          </div>
+
+          <div className="min-w-0">
+            <p className="truncate font-black">
+              {conversation.listingTitle}
+            </p>
+
+            <p className="mt-1 text-sm font-bold text-[var(--text-muted)]">
+              {formatLkr(
+                conversation.listingPriceLkr
+              )}
+            </p>
+
+            <p className="mt-1 text-xs font-bold text-[var(--danger)]">
               This listing is no longer
               available.
             </p>
-          )}
+          </div>
         </div>
-      </Link>
+      )}
 
-      <div className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
-        {messages.length === 0 && (
-          <div className="flex min-h-60 items-center justify-center text-center">
-            <div>
+      <div className="mt-5 flex-1 overflow-y-auto px-1 py-2">
+        {messages.length === 0 ? (
+          <div className="flex min-h-72 items-center justify-center text-center">
+            <div className="rounded-3xl bg-[var(--surface)] px-6 py-8">
               <p className="text-lg font-black">
                 Start the conversation
               </p>
@@ -342,74 +401,95 @@ export function MessageThread({
               <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--text-muted)]">
                 Ask whether the item is
                 available, request more
-                information or discuss
+                information, or discuss
                 delivery and pickup.
               </p>
             </div>
           </div>
-        )}
+        ) : (
+          <div className="space-y-3">
+            {messages.map(
+              (message) => {
+                const isOwnMessage =
+                  message.senderId ===
+                  currentUserId;
 
-        {messages.map(
-          (message) => {
-            const isOwnMessage =
-              message.senderId ===
-              currentUserId;
-
-            return (
-              <div
-                key={message.id}
-                className={[
-                  "flex",
-                  isOwnMessage
-                    ? "justify-end"
-                    : "justify-start"
-                ].join(" ")}
-              >
-                <div
-                  className={[
-                    "max-w-[82%] rounded-3xl px-4 py-3 sm:max-w-[70%]",
-                    isOwnMessage
-                      ? "rounded-br-md bg-[var(--text)] text-[var(--background)]"
-                      : "rounded-bl-md bg-[var(--surface-soft)] text-[var(--text)]"
-                  ].join(" ")}
-                >
-                  <p className="whitespace-pre-wrap break-words text-sm leading-6">
-                    {message.body}
-                  </p>
-
-                  <p
+                return (
+                  <div
+                    key={message.id}
                     className={[
-                      "mt-1 text-right text-[10px]",
+                      "flex items-end gap-2",
                       isOwnMessage
-                        ? "opacity-65"
-                        : "text-[var(--text-muted)]"
+                        ? "justify-end"
+                        : "justify-start"
                     ].join(" ")}
                   >
-                    {new Intl.DateTimeFormat(
-                      "en",
-                      {
-                        hour: "numeric",
-                        minute:
-                          "2-digit"
-                      }
-                    ).format(
-                      new Date(
-                        message.createdAt
-                      )
+                    {!isOwnMessage && (
+                      <Link
+                        href={`/u/${conversation.otherUsername}`}
+                        className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[var(--surface-soft)]"
+                        aria-label={`View ${conversation.otherUserName}'s profile`}
+                      >
+                        {conversation.otherAvatarUrl ? (
+                          <Image
+                            src={
+                              conversation.otherAvatarUrl
+                            }
+                            alt={
+                              conversation.otherUserName
+                            }
+                            fill
+                            sizes="32px"
+                            className="object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-xs font-black">
+                            {getInitial(
+                              conversation.otherUserName
+                            )}
+                          </span>
+                        )}
+                      </Link>
                     )}
-                  </p>
-                </div>
-              </div>
-            );
-          }
-        )}
 
-        <div ref={endRef} />
+                    <div
+                      className={[
+                        "w-fit min-w-0 max-w-[78%] rounded-3xl px-4 py-3 sm:max-w-[65%]",
+                        isOwnMessage
+                          ? "rounded-br-md bg-[#263943] text-white dark:bg-[#f6f2eb] dark:text-[#101820]"
+                          : "rounded-bl-md border border-[var(--border)] bg-[var(--surface)] text-[var(--text)]"
+                      ].join(" ")}
+                    >
+                      <p className="whitespace-pre-wrap break-words text-sm leading-6">
+                        {message.body}
+                      </p>
+
+                      <p
+                        className={[
+                          "mt-1 text-right text-[10px]",
+                          isOwnMessage
+                            ? "opacity-65"
+                            : "text-[var(--text-muted)]"
+                        ].join(" ")}
+                      >
+                        {formatMessageTime(
+                          message.createdAt
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+            )}
+
+            <div ref={endRef} />
+          </div>
+        )}
       </div>
 
       <form
         onSubmit={sendMessage}
-        className="sticky bottom-24 mt-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-lg md:bottom-4"
+        className="sticky bottom-24 z-30 mt-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)]/95 p-3 shadow-lg backdrop-blur md:bottom-4"
       >
         <div className="flex items-end gap-3">
           <textarea
@@ -419,13 +499,11 @@ export function MessageThread({
                 event.target.value
               )
             }
-            onKeyDown={
-              handleKeyDown
-            }
+            onKeyDown={handleKeyDown}
             rows={1}
             maxLength={2000}
             placeholder={`Message ${conversation.otherUserName}`}
-            className="max-h-36 min-h-12 flex-1 resize-none rounded-2xl bg-[var(--background)] px-4 py-3 outline-none"
+            className="max-h-36 min-h-12 flex-1 resize-none rounded-2xl bg-[var(--background)] px-4 py-3 text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]"
           />
 
           <button
@@ -434,10 +512,13 @@ export function MessageThread({
               isSending ||
               !body.trim()
             }
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--text)] text-[var(--surface)] disabled:opacity-40"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#263943] text-white transition hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#f6f2eb] dark:text-[#101820]"
             aria-label="Send message"
           >
-            <Send size={18} />
+            <Send
+              size={18}
+              aria-hidden="true"
+            />
           </button>
         </div>
 

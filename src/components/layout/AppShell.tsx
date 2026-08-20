@@ -1,18 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Home,
-  Search,
-  PlusCircle,
   MessageCircle,
-  User,
   Moon,
-  Sun
+  PlusCircle,
+  Search,
+  Sun,
+  User
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useSyncExternalStore } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useState,
+  useSyncExternalStore
+} from "react";
+
+import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   {
@@ -57,27 +65,169 @@ function getServerSnapshot() {
 export function AppShell({
   children
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
+  const pathname = usePathname();
+
   const {
     resolvedTheme,
     setTheme
   } = useTheme();
 
-  const mounted =
-    useSyncExternalStore(
-      subscribeToHydration,
-      getClientSnapshot,
-      getServerSnapshot
-    );
+  const mounted = useSyncExternalStore(
+    subscribeToHydration,
+    getClientSnapshot,
+    getServerSnapshot
+  );
+
+  const [supabase] = useState(() =>
+    createClient()
+  );
+
+  const [unreadCount, setUnreadCount] =
+    useState(0);
 
   const isDark =
     mounted &&
     resolvedTheme === "dark";
 
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadUnreadCount() {
+      try {
+        const response = await fetch(
+          "/api/messages/unread-count",
+          {
+            method: "GET",
+            cache: "no-store",
+            credentials: "same-origin"
+          }
+        );
+
+        if (!response.ok) {
+          if (isActive) {
+            setUnreadCount(0);
+          }
+
+          return;
+        }
+
+        const data = (await response.json()) as {
+          unreadCount?: number;
+        };
+
+        if (isActive) {
+          setUnreadCount(
+            Math.max(
+              0,
+              Number(data.unreadCount) || 0
+            )
+          );
+        }
+      } catch {
+        if (isActive) {
+          setUnreadCount(0);
+        }
+      }
+    }
+
+    function handleUnreadChanged() {
+      void loadUnreadCount();
+    }
+
+    function handleWindowFocus() {
+      void loadUnreadCount();
+    }
+
+    void loadUnreadCount();
+
+    const messagesChannel = supabase
+      .channel("app-shell-message-notifications")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages"
+        },
+        () => {
+          void loadUnreadCount();
+        }
+      )
+      .subscribe();
+
+    window.addEventListener(
+      "listed:unread-changed",
+      handleUnreadChanged
+    );
+
+    window.addEventListener(
+      "focus",
+      handleWindowFocus
+    );
+
+    return () => {
+      isActive = false;
+
+      window.removeEventListener(
+        "listed:unread-changed",
+        handleUnreadChanged
+      );
+
+      window.removeEventListener(
+        "focus",
+        handleWindowFocus
+      );
+
+      void supabase.removeChannel(
+        messagesChannel
+      );
+    };
+  }, [supabase, pathname]);
+
   function toggleTheme() {
     setTheme(
       isDark ? "light" : "dark"
+    );
+  }
+
+  function isNavigationItemActive(
+    href: string
+  ) {
+    if (href === "/") {
+      return pathname === "/";
+    }
+
+    return (
+      pathname === href ||
+      pathname.startsWith(`${href}/`)
+    );
+  }
+
+  function renderNavigationIcon(
+    item: (typeof navItems)[number],
+    size: number
+  ) {
+    const Icon = item.icon;
+    const showUnreadIndicator =
+      item.href === "/inbox" &&
+      unreadCount > 0;
+
+    return (
+      <span className="relative inline-flex">
+        <Icon
+          size={size}
+          aria-hidden="true"
+        />
+
+        {showUnreadIndicator && (
+          <span
+            className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[var(--background)] bg-red-500"
+            aria-hidden="true"
+          />
+        )}
+      </span>
     );
   }
 
@@ -113,29 +263,39 @@ export function AppShell({
             className="flex items-center gap-2"
             aria-label="Main navigation"
           >
-            {navItems.map(
-              (item) => {
-                const Icon =
-                  item.icon;
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-[var(--surface)]"
-                  >
-                    <Icon
-                      size={17}
-                      aria-hidden="true"
-                    />
-
-                    <span>
-                      {item.label}
-                    </span>
-                  </Link>
+            {navItems.map((item) => {
+              const active =
+                isNavigationItemActive(
+                  item.href
                 );
-              }
-            )}
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={
+                    active
+                      ? "page"
+                      : undefined
+                  }
+                  className={[
+                    "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition",
+                    active
+                      ? "bg-[var(--surface)] text-[var(--text)]"
+                      : "text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                  ].join(" ")}
+                >
+                  {renderNavigationIcon(
+                    item,
+                    17
+                  )}
+
+                  <span>
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
           </nav>
 
           <button
@@ -247,29 +407,39 @@ export function AppShell({
         aria-label="Mobile navigation"
       >
         <div className="grid grid-cols-5 gap-1">
-          {navItems.map(
-            (item) => {
-              const Icon =
-                item.icon;
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="flex flex-col items-center justify-center gap-1 rounded-2xl py-2 text-xs font-semibold text-[var(--text-muted)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--text)]"
-                >
-                  <Icon
-                    size={20}
-                    aria-hidden="true"
-                  />
-
-                  <span>
-                    {item.label}
-                  </span>
-                </Link>
+          {navItems.map((item) => {
+            const active =
+              isNavigationItemActive(
+                item.href
               );
-            }
-          )}
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={
+                  active
+                    ? "page"
+                    : undefined
+                }
+                className={[
+                  "flex flex-col items-center justify-center gap-1 rounded-2xl py-2 text-xs font-semibold transition",
+                  active
+                    ? "text-[var(--text)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text)]"
+                ].join(" ")}
+              >
+                {renderNavigationIcon(
+                  item,
+                  20
+                )}
+
+                <span>
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </nav>
     </div>
