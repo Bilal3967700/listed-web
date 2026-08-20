@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   FormEvent,
@@ -8,12 +9,10 @@ import {
   useRef,
   useState
 } from "react";
-
 import { useRouter } from "next/navigation";
 
 import {
   Camera,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -24,8 +23,10 @@ import {
 } from "lucide-react";
 
 import { ListingCard } from "@/components/listing/ListingCard";
-import { Category, Listing } from "@/types/listing";
-
+import {
+  Category,
+  Listing
+} from "@/types/listing";
 import {
   RecentSearch,
   SearchFilters,
@@ -44,22 +45,25 @@ const conditions = [
 const featuredCollections = [
   {
     title: "Fresh streetwear",
-    description: "Everyday pieces with personality",
-    href: "/search?q=streetwear",
+    description:
+      "Everyday pieces with personality",
+    query: "streetwear",
     image:
       "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=1600&auto=format&fit=crop"
   },
   {
     title: "Tech worth keeping",
-    description: "Phones, audio and useful accessories",
-    href: "/search?q=tech",
+    description:
+      "Phones, audio and useful accessories",
+    query: "tech",
     image:
       "https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=1600&auto=format&fit=crop"
   },
   {
     title: "Collectors’ corner",
-    description: "Cards, watches and unique finds",
-    href: "/search?q=collectibles",
+    description:
+      "Cards, watches and unique finds",
+    query: "collectibles",
     image:
       "https://images.unsplash.com/photo-1613771404721-1f92d799e49f?q=80&w=1600&auto=format&fit=crop"
   }
@@ -99,6 +103,10 @@ const featuredBrands = [
   "Converse"
 ];
 
+function createSearchEventId() {
+  return globalThis.crypto.randomUUID();
+}
+
 export function DiscoverClient({
   listings,
   total,
@@ -123,96 +131,162 @@ export function DiscoverClient({
   const [query, setQuery] =
     useState(filters.query);
 
-  const [suggestions, setSuggestions] =
-    useState<SearchSuggestion[]>([]);
+  const [
+    suggestions,
+    setSuggestions
+  ] = useState<SearchSuggestion[]>([]);
 
   const [
     showSuggestions,
     setShowSuggestions
   ] = useState(false);
 
-  const [showFilters, setShowFilters] =
-    useState(
-      Boolean(
-        filters.category ||
-          filters.minimumPrice ||
-          filters.maximumPrice ||
-          filters.condition
-      )
-    );
+  const [
+    showFilters,
+    setShowFilters
+  ] = useState(
+    Boolean(
+      filters.category ||
+        filters.minimumPrice !==
+          undefined ||
+        filters.maximumPrice !==
+          undefined ||
+        filters.condition
+    )
+  );
 
-  const [localSearches, setLocalSearches] =
-    useState<RecentSearch[]>([]);
+  const [
+    localSearches,
+    setLocalSearches
+  ] = useState<RecentSearch[]>([]);
 
-  const [showAllRecent, setShowAllRecent] =
-    useState(false);
+  const [
+    showAllRecent,
+    setShowAllRecent
+  ] = useState(false);
 
-  const suggestionRequest = useRef(0);
+  const suggestionRequest =
+    useRef(0);
 
+  /*
+   * Load searches saved on this
+   * browser. The timeout avoids a
+   * synchronous state update directly
+   * inside the effect.
+   */
   useEffect(() => {
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem(
-          "listed-recent-searches"
-        ) || "[]"
-      );
+    const timer =
+      window.setTimeout(() => {
+        try {
+          const storedValue =
+            localStorage.getItem(
+              "listed-recent-searches"
+            );
 
-      if (Array.isArray(saved)) {
-        setLocalSearches(saved.slice(0, 20));
-      }
-    } catch {
-      setLocalSearches([]);
-    }
+          const saved = JSON.parse(
+            storedValue || "[]"
+          );
+
+          if (Array.isArray(saved)) {
+            setLocalSearches(
+              saved.slice(0, 20)
+            );
+          }
+        } catch {
+          setLocalSearches([]);
+        }
+      }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, []);
 
+  /*
+   * Load live search suggestions after
+   * a short debounce.
+   */
   useEffect(() => {
-    const cleanQuery = query.trim();
+    const cleanQuery =
+      query.trim();
 
     if (
       cleanQuery.length < 2 ||
       cleanQuery === filters.query
     ) {
-      setSuggestions([]);
       return;
     }
 
     const requestId =
       ++suggestionRequest.current;
 
-    const timer = window.setTimeout(
-      async () => {
-        const response = await fetch(
-          `/api/search/suggestions?q=${encodeURIComponent(
-            cleanQuery
-          )}`
-        );
+    const abortController =
+      new AbortController();
 
-        if (
-          !response.ok ||
-          requestId !==
-            suggestionRequest.current
-        ) {
-          return;
-        }
+    const timer =
+      window.setTimeout(
+        async () => {
+          try {
+            const response =
+              await fetch(
+                `/api/search/suggestions?q=${encodeURIComponent(
+                  cleanQuery
+                )}`,
+                {
+                  signal:
+                    abortController.signal
+                }
+              );
 
-        const payload =
-          (await response.json()) as {
-            suggestions: SearchSuggestion[];
-          };
+            if (
+              !response.ok ||
+              requestId !==
+                suggestionRequest.current
+            ) {
+              return;
+            }
 
-        setSuggestions(
-          payload.suggestions
-        );
+            const payload =
+              (await response.json()) as {
+                suggestions:
+                  SearchSuggestion[];
+              };
 
-        setShowSuggestions(true);
-      },
-      220
-    );
+            setSuggestions(
+              payload.suggestions
+            );
 
-    return () =>
+            setShowSuggestions(true);
+          } catch (error) {
+            if (
+              error instanceof
+                DOMException &&
+              error.name ===
+                "AbortError"
+            ) {
+              return;
+            }
+
+            console.error(
+              "Search suggestions error:",
+              error
+            );
+          }
+        },
+        220
+      );
+
+    return () => {
       window.clearTimeout(timer);
+      abortController.abort();
+    };
   }, [query, filters.query]);
 
+  /*
+   * Record a completed authenticated
+   * search after the result count is
+   * known.
+   */
   useEffect(() => {
     if (
       !userId ||
@@ -226,7 +300,9 @@ export function DiscoverClient({
       `listed-recorded-search:${searchEventId}`;
 
     if (
-      sessionStorage.getItem(storageKey)
+      sessionStorage.getItem(
+        storageKey
+      )
     ) {
       return;
     }
@@ -236,68 +312,97 @@ export function DiscoverClient({
       "true"
     );
 
-    void fetch("/api/search/history", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        query: filters.query,
-        resultCount: total,
-        filters: {
-          category:
-            filters.category || null,
-          minimumPrice:
-            filters.minimumPrice ?? null,
-          maximumPrice:
-            filters.maximumPrice ?? null,
-          condition:
-            filters.condition || null,
-          sort: filters.sort
-        }
-      }),
-      keepalive: true
-    });
+    void fetch(
+      "/api/search/history",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+        body: JSON.stringify({
+          query: filters.query,
+          resultCount: total,
+          filters: {
+            category:
+              filters.category ||
+              null,
+            minimumPrice:
+              filters.minimumPrice ??
+              null,
+            maximumPrice:
+              filters.maximumPrice ??
+              null,
+            condition:
+              filters.condition ||
+              null,
+            sort: filters.sort
+          }
+        }),
+        keepalive: true
+      }
+    );
   }, [
     userId,
     searchEventId,
-    filters,
+    filters.query,
+    filters.category,
+    filters.minimumPrice,
+    filters.maximumPrice,
+    filters.condition,
+    filters.sort,
     total
   ]);
 
-  const recentSearches = useMemo(() => {
-    const searches =
-      new Map<string, RecentSearch>();
+  const recentSearches =
+    useMemo(() => {
+      const searches =
+        new Map<
+          string,
+          RecentSearch
+        >();
 
-    [...accountSearches, ...localSearches]
-      .sort((a, b) =>
-        b.createdAt.localeCompare(
-          a.createdAt
+      [
+        ...accountSearches,
+        ...localSearches
+      ]
+        .sort((a, b) =>
+          b.createdAt.localeCompare(
+            a.createdAt
+          )
         )
-      )
-      .forEach((item) => {
-        const key =
-          item.query.trim().toLowerCase();
+        .forEach((item) => {
+          const key =
+            item.query
+              .trim()
+              .toLowerCase();
 
-        if (
-          key &&
-          !searches.has(key)
-        ) {
-          searches.set(key, item);
-        }
-      });
+          if (
+            key &&
+            !searches.has(key)
+          ) {
+            searches.set(
+              key,
+              item
+            );
+          }
+        });
 
-    return [...searches.values()].slice(
-      0,
-      20
-    );
-  }, [accountSearches, localSearches]);
+      return [
+        ...searches.values()
+      ].slice(0, 20);
+    }, [
+      accountSearches,
+      localSearches
+    ]);
 
   const hasSearch = Boolean(
     filters.query ||
       filters.category ||
-      filters.minimumPrice !== undefined ||
-      filters.maximumPrice !== undefined ||
+      filters.minimumPrice !==
+        undefined ||
+      filters.maximumPrice !==
+        undefined ||
       filters.condition
   );
 
@@ -306,18 +411,27 @@ export function DiscoverClient({
     Math.ceil(total / 24)
   );
 
+  const shouldShowSuggestions =
+    query.trim().length >= 2 &&
+    query.trim() !==
+      filters.query &&
+    showSuggestions &&
+    suggestions.length > 0;
+
   function rememberLocally(
     searchQuery: string
   ) {
-    const cleanQuery = searchQuery
-      .trim()
-      .slice(0, 200);
+    const cleanQuery =
+      searchQuery
+        .trim()
+        .slice(0, 200);
 
     if (!cleanQuery) {
       return;
     }
 
-    const next: RecentSearch[] = [
+    const next:
+      RecentSearch[] = [
       {
         query: cleanQuery,
         createdAt:
@@ -325,7 +439,8 @@ export function DiscoverClient({
       },
       ...localSearches.filter(
         (item) =>
-          item.query.toLowerCase() !==
+          item.query
+            .toLowerCase() !==
           cleanQuery.toLowerCase()
       )
     ].slice(0, 20);
@@ -338,44 +453,45 @@ export function DiscoverClient({
     );
   }
 
-  function newSearchEventId() {
-    if (
-      typeof crypto !== "undefined" &&
-      "randomUUID" in crypto
-    ) {
-      return crypto.randomUUID();
-    }
-
-    return `${Date.now()}-${Math.random()}`;
-  }
-
   function submitSearch(
-    event: FormEvent<HTMLFormElement>
+    event:
+      FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
-    const cleanQuery = query.trim();
-    const formData = new FormData(
-      event.currentTarget
-    );
+    const cleanQuery =
+      query.trim();
+
+    const formData =
+      new FormData(
+        event.currentTarget
+      );
 
     const params =
       new URLSearchParams();
 
-    formData.forEach((value, key) => {
-      const cleanValue =
-        String(value).trim();
+    formData.forEach(
+      (value, key) => {
+        const cleanValue =
+          String(value).trim();
 
-      if (cleanValue) {
-        params.set(key, cleanValue);
+        if (cleanValue) {
+          params.set(
+            key,
+            cleanValue
+          );
+        }
       }
-    });
+    );
 
     if (cleanQuery) {
-      rememberLocally(cleanQuery);
+      rememberLocally(
+        cleanQuery
+      );
+
       params.set(
         "sid",
-        newSearchEventId()
+        createSearchEventId()
       );
     }
 
@@ -388,20 +504,27 @@ export function DiscoverClient({
 
   function runSearch(
     searchQuery: string,
-    categorySlug?: string | null
+    categorySlug?:
+      | string
+      | null
   ) {
     const cleanQuery =
       searchQuery.trim();
 
     if (cleanQuery) {
-      rememberLocally(cleanQuery);
+      rememberLocally(
+        cleanQuery
+      );
     }
 
     const params =
       new URLSearchParams();
 
     if (cleanQuery) {
-      params.set("q", cleanQuery);
+      params.set(
+        "q",
+        cleanQuery
+      );
     }
 
     if (categorySlug) {
@@ -413,7 +536,31 @@ export function DiscoverClient({
 
     params.set(
       "sid",
-      newSearchEventId()
+      createSearchEventId()
+    );
+
+    setQuery(cleanQuery);
+    setShowSuggestions(false);
+
+    router.push(
+      `/search?${params.toString()}`
+    );
+  }
+
+  function browseCategory(
+    categorySlug: string
+  ) {
+    const params =
+      new URLSearchParams();
+
+    params.set(
+      "category",
+      categorySlug
+    );
+
+    params.set(
+      "sid",
+      createSearchEventId()
     );
 
     setShowSuggestions(false);
@@ -431,12 +578,19 @@ export function DiscoverClient({
     );
 
     if (userId) {
-      await fetch(
-        "/api/search/history",
-        {
-          method: "DELETE"
-        }
-      );
+      const response =
+        await fetch(
+          "/api/search/history",
+          {
+            method: "DELETE"
+          }
+        );
+
+      if (!response.ok) {
+        console.error(
+          "Could not clear account search history."
+        );
+      }
     }
 
     router.refresh();
@@ -445,21 +599,30 @@ export function DiscoverClient({
   function categoryLabel(
     category: Category
   ) {
-    const labels = [category.name];
+    const labels = [
+      category.name
+    ];
+
     let parentId =
       category.parent_id;
 
     while (parentId) {
-      const parent = categories.find(
-        (item) => item.id === parentId
-      );
+      const parent =
+        categories.find(
+          (item) =>
+            item.id === parentId
+        );
 
       if (!parent) {
         break;
       }
 
-      labels.unshift(parent.name);
-      parentId = parent.parent_id;
+      labels.unshift(
+        parent.name
+      );
+
+      parentId =
+        parent.parent_id;
     }
 
     return labels.join(" › ");
@@ -475,35 +638,74 @@ export function DiscoverClient({
         <div className="flex gap-3">
           <div className="relative flex-1">
             <div className="flex h-14 items-center gap-3 rounded-full border border-[var(--border)] bg-[var(--surface)] px-5 shadow-sm focus-within:ring-2 focus-within:ring-[var(--text)]/20">
-              <Search size={21} />
+              <Search
+                size={21}
+                aria-hidden="true"
+              />
 
               <input
                 name="q"
                 value={query}
-                onChange={(event) =>
+                onChange={(event) => {
                   setQuery(
                     event.target.value
-                  )
-                }
-                onFocus={() =>
-                  suggestions.length > 0 &&
-                  setShowSuggestions(true)
-                }
+                  );
+
+                  if (
+                    event.target.value
+                      .trim()
+                      .length < 2
+                  ) {
+                    setShowSuggestions(
+                      false
+                    );
+                  }
+                }}
+                onFocus={() => {
+                  if (
+                    query.trim().length >=
+                      2 &&
+                    suggestions.length >
+                      0
+                  ) {
+                    setShowSuggestions(
+                      true
+                    );
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    event.key ===
+                    "Escape"
+                  ) {
+                    setShowSuggestions(
+                      false
+                    );
+                  }
+                }}
                 autoComplete="off"
                 maxLength={100}
                 placeholder="Search for anything"
+                aria-label="Search listings"
                 className="h-full w-full bg-transparent text-base outline-none placeholder:text-[var(--text-muted)]"
               />
 
               {query ? (
                 <button
                   type="button"
-                  onClick={() =>
-                    setQuery("")
-                  }
+                  onClick={() => {
+                    setQuery("");
+                    setShowSuggestions(
+                      false
+                    );
+                  }}
                   aria-label="Clear search"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--text)]"
                 >
-                  <X size={18} />
+                  <X
+                    size={18}
+                    aria-hidden="true"
+                  />
                 </button>
               ) : (
                 <button
@@ -513,64 +715,77 @@ export function DiscoverClient({
                   className="text-[var(--text-muted)]"
                   aria-label="Visual search coming later"
                 >
-                  <Camera size={21} />
+                  <Camera
+                    size={21}
+                    aria-hidden="true"
+                  />
                 </button>
               )}
             </div>
 
-            {showSuggestions &&
-              suggestions.length > 0 && (
-                <div className="absolute left-0 right-0 top-16 z-50 overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
-                  {suggestions.map(
-                    (item) => (
-                      <button
-                        type="button"
-                        key={`${item.suggestion_type}-${item.suggestion}-${item.category_slug || ""}`}
-                        onClick={() =>
-                          runSearch(
-                            item.suggestion,
-                            item.category_slug
-                          )
-                        }
-                        className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-[var(--surface-soft)]"
-                      >
-                        <span className="flex items-center gap-3 font-bold">
-                          <Search
-                            size={16}
-                          />
-                          {
-                            item.suggestion
-                          }
-                        </span>
+            {shouldShowSuggestions && (
+              <div className="absolute left-0 right-0 top-16 z-50 overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
+                {suggestions.map(
+                  (item) => (
+                    <button
+                      type="button"
+                      key={`${item.suggestion_type}-${item.suggestion}-${item.category_slug || ""}`}
+                      onClick={() =>
+                        runSearch(
+                          item.suggestion,
+                          item.category_slug
+                        )
+                      }
+                      className="flex w-full items-center justify-between px-5 py-4 text-left transition hover:bg-[var(--surface-soft)]"
+                    >
+                      <span className="flex items-center gap-3 font-bold">
+                        <Search
+                          size={16}
+                          aria-hidden="true"
+                        />
 
-                        <span className="text-xs capitalize text-[var(--text-muted)]">
-                          {
-                            item.suggestion_type
-                          }
-                        </span>
-                      </button>
-                    )
-                  )}
-                </div>
-              )}
+                        {
+                          item.suggestion
+                        }
+                      </span>
+
+                      <span className="text-xs capitalize text-[var(--text-muted)]">
+                        {
+                          item.suggestion_type
+                        }
+                      </span>
+                    </button>
+                  )
+                )}
+              </div>
+            )}
           </div>
 
           <button
             type="button"
             onClick={() =>
               setShowFilters(
-                (current) => !current
+                (current) =>
+                  !current
               )
             }
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)]"
-            aria-label="Search filters"
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] transition hover:bg-[var(--surface-soft)]"
+            aria-label={
+              showFilters
+                ? "Hide search filters"
+                : "Show search filters"
+            }
           >
             <SlidersHorizontal
               size={20}
+              aria-hidden="true"
             />
           </button>
 
-          <button className="hidden h-14 rounded-full bg-[var(--text)] px-7 font-black text-[var(--surface)] sm:block">
+          <button
+            type="submit"
+            className="hidden h-14 rounded-full bg-[var(--text)] px-7 font-black text-[var(--surface)] transition hover:opacity-85 sm:block"
+          >
             Search
           </button>
         </div>
@@ -580,9 +795,10 @@ export function DiscoverClient({
             <select
               name="category"
               defaultValue={
-                filters.category || ""
+                filters.category ||
+                ""
               }
-              className="h-12 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 font-bold"
+              className="h-12 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 font-bold outline-none"
             >
               <option value="">
                 All categories
@@ -591,8 +807,12 @@ export function DiscoverClient({
               {categories.map(
                 (category) => (
                   <option
-                    key={category.id}
-                    value={category.slug}
+                    key={
+                      category.id
+                    }
+                    value={
+                      category.slug
+                    }
                   >
                     {categoryLabel(
                       category
@@ -606,30 +826,33 @@ export function DiscoverClient({
               name="min"
               type="number"
               min="0"
+              step="1"
               defaultValue={
                 filters.minimumPrice
               }
               placeholder="Minimum LKR"
-              className="h-12 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3"
+              className="h-12 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 outline-none"
             />
 
             <input
               name="max"
               type="number"
               min="0"
+              step="1"
               defaultValue={
                 filters.maximumPrice
               }
               placeholder="Maximum LKR"
-              className="h-12 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3"
+              className="h-12 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 outline-none"
             />
 
             <select
               name="condition"
               defaultValue={
-                filters.condition || ""
+                filters.condition ||
+                ""
               }
-              className="h-12 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 font-bold"
+              className="h-12 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 font-bold outline-none"
             >
               <option value="">
                 Any condition
@@ -639,7 +862,9 @@ export function DiscoverClient({
                 (condition) => (
                   <option
                     key={condition}
-                    value={condition}
+                    value={
+                      condition
+                    }
                   >
                     {condition}
                   </option>
@@ -652,7 +877,7 @@ export function DiscoverClient({
               defaultValue={
                 filters.sort
               }
-              className="h-12 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 font-bold"
+              className="h-12 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 font-bold outline-none"
             >
               <option value="relevance">
                 Most relevant
@@ -671,7 +896,10 @@ export function DiscoverClient({
               </option>
             </select>
 
-            <button className="h-12 rounded-2xl bg-[var(--text)] font-black text-[var(--surface)] lg:col-start-5">
+            <button
+              type="submit"
+              className="h-12 rounded-2xl bg-[var(--text)] font-black text-[var(--surface)] transition hover:opacity-85 lg:col-start-5"
+            >
               Apply filters
             </button>
           </div>
@@ -680,28 +908,36 @@ export function DiscoverClient({
 
       {!hasSearch && (
         <>
-          {recentSearches.length > 0 && (
+          {recentSearches.length >
+            0 && (
             <section className="mt-8">
               <div className="flex items-center justify-between">
                 <h2 className="flex items-center gap-2 text-xl font-black">
-                  <Clock3 size={19} />
+                  <Clock3
+                    size={19}
+                    aria-hidden="true"
+                  />
+
                   Recent searches
                 </h2>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowAllRecent(
-                      (current) =>
-                        !current
-                    )
-                  }
-                  className="text-sm font-bold"
-                >
-                  {showAllRecent
-                    ? "Show less"
-                    : "Show all"}
-                </button>
+                {recentSearches.length >
+                  3 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowAllRecent(
+                        (current) =>
+                          !current
+                      )
+                    }
+                    className="text-sm font-bold"
+                  >
+                    {showAllRecent
+                      ? "Show less"
+                      : "Show all"}
+                  </button>
+                )}
               </div>
 
               <div className="mt-3 grid gap-2">
@@ -721,14 +957,17 @@ export function DiscoverClient({
                           item.query
                         )
                       }
-                      className="flex items-center justify-between rounded-2xl border-b border-[var(--border)] px-2 py-4 text-left font-bold"
+                      className="flex items-center justify-between rounded-2xl border-b border-[var(--border)] px-2 py-4 text-left font-bold transition hover:bg-[var(--surface)]"
                     >
                       <span>
-                        {item.query}
+                        {
+                          item.query
+                        }
                       </span>
 
                       <ChevronRight
                         size={18}
+                        aria-hidden="true"
                       />
                     </button>
                   ))}
@@ -739,7 +978,7 @@ export function DiscoverClient({
                 onClick={() =>
                   void clearHistory()
                 }
-                className="mt-4 text-xs font-bold text-[var(--text-muted)]"
+                className="mt-4 text-xs font-bold text-[var(--text-muted)] transition hover:text-[var(--danger)]"
               >
                 Clear search history
               </button>
@@ -760,21 +999,28 @@ export function DiscoverClient({
             <div className="mt-5 grid gap-4">
               {featuredCollections.map(
                 (collection) => (
-                  <Link
-                    key={collection.title}
-                    href={
-                      collection.href
+                  <button
+                    type="button"
+                    key={
+                      collection.title
                     }
-                    className="group relative overflow-hidden rounded-3xl"
+                    onClick={() =>
+                      runSearch(
+                        collection.query
+                      )
+                    }
+                    className="group relative h-52 overflow-hidden rounded-3xl text-left md:h-72"
                   >
-                    <img
+                    <Image
                       src={
                         collection.image
                       }
                       alt={
                         collection.title
                       }
-                      className="h-52 w-full object-cover transition duration-500 group-hover:scale-105 md:h-72"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 1200px"
+                      className="object-cover transition duration-500 group-hover:scale-105"
                     />
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
@@ -792,7 +1038,7 @@ export function DiscoverClient({
                         }
                       </p>
                     </div>
-                  </Link>
+                  </button>
                 )
               )}
             </div>
@@ -810,21 +1056,33 @@ export function DiscoverClient({
                     category.parent_id ===
                     null
                 )
-                .map((category) => (
-                  <Link
-                    key={category.id}
-                    href={`/search?category=${category.slug}`}
-                    className="flex items-center justify-between border-b border-[var(--border)] py-5 text-xl font-bold"
-                  >
-                    <span>
-                      {category.name}
-                    </span>
+                .map(
+                  (category) => (
+                    <button
+                      type="button"
+                      key={
+                        category.id
+                      }
+                      onClick={() =>
+                        browseCategory(
+                          category.slug
+                        )
+                      }
+                      className="flex w-full items-center justify-between border-b border-[var(--border)] py-5 text-left text-xl font-bold transition hover:px-2 hover:bg-[var(--surface)]"
+                    >
+                      <span>
+                        {
+                          category.name
+                        }
+                      </span>
 
-                    <ChevronRight
-                      size={22}
-                    />
-                  </Link>
-                ))}
+                      <ChevronRight
+                        size={22}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  )
+                )}
             </div>
           </section>
 
@@ -844,12 +1102,14 @@ export function DiscoverClient({
                         item.query
                       )
                     }
-                    className="relative min-w-[230px] overflow-hidden rounded-3xl text-left sm:min-w-[280px]"
+                    className="relative h-72 min-w-[230px] overflow-hidden rounded-3xl text-left sm:min-w-[280px]"
                   >
-                    <img
+                    <Image
                       src={item.image}
                       alt={item.query}
-                      className="h-72 w-full object-cover"
+                      fill
+                      sizes="(max-width: 640px) 230px, 280px"
+                      className="object-cover"
                     />
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
@@ -870,7 +1130,7 @@ export function DiscoverClient({
           </section>
 
           <section className="mt-10">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <h2 className="text-2xl font-black">
                 Brands
               </h2>
@@ -889,7 +1149,7 @@ export function DiscoverClient({
                     onClick={() =>
                       runSearch(brand)
                     }
-                    className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-3 font-black"
+                    className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-3 font-black transition hover:border-[var(--text)]"
                   >
                     {brand}
                   </button>
@@ -900,7 +1160,10 @@ export function DiscoverClient({
 
           <section className="mt-10 rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] p-6">
             <div className="flex items-center gap-2">
-              <Sparkles size={20} />
+              <Sparkles
+                size={20}
+                aria-hidden="true"
+              />
 
               <h2 className="text-xl font-black">
                 Picks for you
@@ -928,7 +1191,9 @@ export function DiscoverClient({
               <button
                 type="button"
                 onClick={() =>
-                  runSearch(didYouMean)
+                  runSearch(
+                    didYouMean
+                  )
                 }
                 className="font-black underline"
               >
@@ -956,7 +1221,7 @@ export function DiscoverClient({
 
             <Link
               href="/search"
-              className="text-sm font-bold text-[var(--text-muted)]"
+              className="text-sm font-bold text-[var(--text-muted)] transition hover:text-[var(--text)]"
             >
               Clear
             </Link>
@@ -968,7 +1233,9 @@ export function DiscoverClient({
                 (listing) => (
                   <ListingCard
                     key={listing.id}
-                    listing={listing}
+                    listing={
+                      listing
+                    }
                   />
                 )
               )}
@@ -1022,14 +1289,19 @@ function PageLink({
   direction,
   filters
 }: {
-  direction: "previous" | "next";
+  direction:
+    | "previous"
+    | "next";
   filters: SearchFilters;
 }) {
   const params =
     new URLSearchParams();
 
   if (filters.query) {
-    params.set("q", filters.query);
+    params.set(
+      "q",
+      filters.query
+    );
   }
 
   if (filters.category) {
@@ -1040,20 +1312,26 @@ function PageLink({
   }
 
   if (
-    filters.minimumPrice !== undefined
+    filters.minimumPrice !==
+    undefined
   ) {
     params.set(
       "min",
-      String(filters.minimumPrice)
+      String(
+        filters.minimumPrice
+      )
     );
   }
 
   if (
-    filters.maximumPrice !== undefined
+    filters.maximumPrice !==
+    undefined
   ) {
     params.set(
       "max",
-      String(filters.maximumPrice)
+      String(
+        filters.maximumPrice
+      )
     );
   }
 
@@ -1064,7 +1342,10 @@ function PageLink({
     );
   }
 
-  params.set("sort", filters.sort);
+  params.set(
+    "sort",
+    filters.sort
+  );
 
   params.set(
     "page",
@@ -1079,13 +1360,20 @@ function PageLink({
   return (
     <Link
       href={`/search?${params.toString()}`}
-      className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)]"
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] transition hover:bg-[var(--surface-soft)]"
       aria-label={`${direction} page`}
     >
-      {direction === "next" ? (
-        <ChevronRight size={18} />
+      {direction ===
+      "next" ? (
+        <ChevronRight
+          size={18}
+          aria-hidden="true"
+        />
       ) : (
-        <ChevronLeft size={18} />
+        <ChevronLeft
+          size={18}
+          aria-hidden="true"
+        />
       )}
     </Link>
   );
