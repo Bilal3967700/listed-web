@@ -1,10 +1,10 @@
 import Link from "next/link";
-
 import {
   ArrowLeft,
   Pencil,
   ShoppingBag
 } from "lucide-react";
+
 import { EnquireButton } from "@/components/messaging/EnquireButton";
 import { DeleteListingButton } from "@/components/listing/DeleteListingButton";
 import { ListingGallery } from "@/components/listing/ListingGallery";
@@ -50,13 +50,17 @@ export default async function ListingDetailsPage({
       : [listing.imageUrl];
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-5xl pb-44 md:pb-0">
       <Link
         href="/"
         className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-bold"
       >
-        <ArrowLeft size={16} />
-        Back
+        <ArrowLeft
+          size={16}
+          aria-hidden="true"
+        />
+
+        <span>Back</span>
       </Link>
 
       <div className="grid gap-8 md:grid-cols-2">
@@ -108,19 +112,25 @@ export default async function ListingDetailsPage({
                 <Link
                   href={`/listing/${listing.id}/edit`}
                   style={{
-                    backgroundColor: "var(--text)",
-                    color: "var(--background)"
+                    backgroundColor:
+                      "var(--text)",
+                    color:
+                      "var(--background)"
                   }}
                   className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-[var(--text)] px-5 font-black shadow-sm transition hover:opacity-85"
                 >
-                  <Pencil size={17} />
-                  <span>Edit listing</span>
+                  <Pencil
+                    size={17}
+                    aria-hidden="true"
+                  />
+
+                  <span>
+                    Edit listing
+                  </span>
                 </Link>
 
                 <DeleteListingButton
-                  listingId={
-                    listing.id
-                  }
+                  listingId={listing.id}
                   sellerUsername={
                     listing.sellerUsername
                   }
@@ -131,7 +141,7 @@ export default async function ListingDetailsPage({
 
           <Link
             href={`/u/${listing.sellerUsername}`}
-            className="mt-8 block rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5"
+            className="mt-8 block rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5 transition hover:border-[var(--text-muted)]"
           >
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
               Seller
@@ -159,18 +169,25 @@ export default async function ListingDetailsPage({
           </div>
 
           {!isOwner && (
-            <div className="fixed bottom-0 left-0 right-0 z-40 flex gap-3 border-t border-[var(--border)] bg-[var(--surface)] p-4 md:static md:mt-8 md:border-0 md:bg-transparent md:p-0">
-              <EnquireButton
-                listingId={listing.id}
-                isLoggedIn={Boolean(user)}
-              />
-
-              <button className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-[var(--text)] font-bold text-[var(--surface)]">
-                <ShoppingBag
-                  size={18}
+            <div className="fixed bottom-24 left-0 right-0 z-[60] border-t border-[var(--border)] bg-[var(--surface)]/95 p-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur md:static md:z-auto md:mt-8 md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none">
+              <div className="mx-auto flex max-w-5xl gap-3">
+                <EnquireButton
+                  listingId={listing.id}
+                  isLoggedIn={Boolean(user)}
                 />
-                Buy now
-              </button>
+
+                <button
+                  type="button"
+                  className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-[var(--text)] px-4 font-bold text-[var(--surface)]"
+                >
+                  <ShoppingBag
+                    size={18}
+                    aria-hidden="true"
+                  />
+
+                  <span>Buy now</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
