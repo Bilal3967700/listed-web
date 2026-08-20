@@ -2,11 +2,10 @@ import Link from "next/link";
 
 import {
   ArrowLeft,
-  MessageCircle,
   Pencil,
   ShoppingBag
 } from "lucide-react";
-
+import { EnquireButton } from "@/components/messaging/EnquireButton";
 import { DeleteListingButton } from "@/components/listing/DeleteListingButton";
 import { ListingGallery } from "@/components/listing/ListingGallery";
 import { getListingById } from "@/lib/listings";
@@ -161,12 +160,10 @@ export default async function ListingDetailsPage({
 
           {!isOwner && (
             <div className="fixed bottom-0 left-0 right-0 z-40 flex gap-3 border-t border-[var(--border)] bg-[var(--surface)] p-4 md:static md:mt-8 md:border-0 md:bg-transparent md:p-0">
-              <button className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] font-bold">
-                <MessageCircle
-                  size={18}
-                />
-                Message
-              </button>
+              <EnquireButton
+                listingId={listing.id}
+                isLoggedIn={Boolean(user)}
+              />
 
               <button className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-[var(--text)] font-bold text-[var(--surface)]">
                 <ShoppingBag
